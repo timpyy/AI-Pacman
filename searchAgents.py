@@ -295,14 +295,21 @@ class CornersProblem(search.SearchProblem):
         space)
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        visitedCorners = set()
+
+        return self.startingPosition, visitedCorners
 
     def isGoalState(self, state):
         """
         Returns whether this search state is a goal state of the problem.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # state contains (position, corners)
+        # when all corners are visited, we return true
+        if state[0] in state[1] and len(state[1]) == len(self.corners):
+            return True
+        else:
+            return False
 
     def getSuccessors(self, state):
         """
@@ -325,7 +332,21 @@ class CornersProblem(search.SearchProblem):
             #   hitsWall = self.walls[nextx][nexty]
 
             "*** YOUR CODE HERE ***"
-
+            position, visitedCorners = state
+            x, y = position
+            dx, dy = Actions.directionToVector(action)
+            nextNode = int(x + dx), int(y + dy)
+            nextx, nexty = nextNode
+            hitsWall = self.walls[nextx][nexty]
+            # if next state is not a wall, add it to successors list
+            if not hitsWall:
+                nextPosition = (nextx, nexty)
+                nextVisitedCorners = set(visitedCorners)
+                # if next state is a corner that hasn't been visited, add to visitedCorners
+                if nextPosition in self.corners and nextPosition not in visitedCorners:
+                    nextVisitedCorners.add(nextPosition)
+                nextState = (nextPosition, nextVisitedCorners)
+                successors.append((nextState, action, 1)) # Adding to successor list
         self._expanded += 1 # DO NOT CHANGE
         return successors
 
@@ -360,7 +381,37 @@ def cornersHeuristic(state, problem):
     walls = problem.walls # These are the walls of the maze, as a Grid (game.py)
 
     "*** YOUR CODE HERE ***"
-    return 0 # Default to trivial solution
+    # Manhattan distance to the furthest unvisited corner is the heuristic that I will utilize
+    position, visitedCorners = state
+    unvisitedCorners = set(corners) - visitedCorners
+    heuristic = 99999  # Initialize heuristic value to a very large int
+
+    for corner in unvisitedCorners:
+        #Find Manhattan distance between position and corner
+        totalDistance = util.manhattanDistance(position, corner)
+        tempCorner = set(unvisitedCorners)
+        tempCorner.discard(corner)
+        corner1 = corner
+        #Iterate through tempCorners
+        while (len(tempCorner)):
+            closestCorner = None
+            closestCornerDistance = 99999  # Initialize to a very largeint
+            for corner2 in tempCorner:
+                # Find Manhattan distance between corner1 and corner2
+                dist = util.manhattanDistance(corner1, corner2)
+                if dist < closestCornerDistance:
+                    # Set closest corner to corner2 and update closest corner distance
+                    closestCorner = corner2
+                    closestCornerDistance = dist
+            corner1 = closestCorner
+            tempCorner.discard(closestCorner)
+            totalDistance += closestCornerDistance
+        heuristic = min(heuristic, totalDistance)
+
+    if len(unvisitedCorners) > 0:
+        return heuristic
+
+    return 0  # Default to trivial solution
 
 class AStarCornersAgent(SearchAgent):
     "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
@@ -454,7 +505,27 @@ def foodHeuristic(state, problem):
     """
     position, foodGrid = state
     "*** YOUR CODE HERE ***"
-    return 0
+    # If we reach the goal, return 0
+    if problem.isGoalState(state):
+        return 0
+
+    food = foodGrid.asList()
+    maxDistance = 0
+
+    # Find the first two dots with the largest distance and initialize both as the first dot in the food grid
+    firstDot = food[0]
+    secondDot = food[0]
+    for i in range(len(food)):
+        for j in range(i + 1, len(food)):
+            # Calculate Manhattan distance between two uneaten dots
+            dist = util.manhattanDistance(food[i], food[j])
+            if dist > maxDistance:
+                maxDistance = dist
+                firstDot = food[i]
+                secondDot = food[j]
+
+    # Max distance between two uneaten dots + minimum distance with current position
+    return maxDistance + min((util.manhattanDistance(position, firstDot), util.manhattanDistance(position, secondDot)))
 
 class ClosestDotSearchAgent(SearchAgent):
     "Search for all food using a sequence of searches"
